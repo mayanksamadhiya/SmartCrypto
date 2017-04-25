@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jnlp href="jnlpcomponent1.jnlp" spec="1.0+">
+    <information>
+        <title>jnlpcomponent1</title>
+        <vendor>LICEL</vendor>
+    </information>
+    <security>
+        <all-permissions/>
+    </security>
+    <resources>
+        <jar href="lib/jcardsim-2.2.2-all.jar" download="eager"/>
+    </resources>
+    <component-desc/>
+</jnlp>
