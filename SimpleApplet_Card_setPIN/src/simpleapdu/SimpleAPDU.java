@@ -29,7 +29,7 @@ public class SimpleAPDU {
     public static void main(String[] args) {
         try {
             //
-            // SIMULATED CARDS
+            // SIMULATED CARDS xpatnaik
             //
             
             // Prepare simulated card 
