@@ -18,11 +18,13 @@ import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.AESKey;
 import javacard.security.CryptoException;
+import javacard.security.HMACKey;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
 import javacard.security.KeyPair;
 import javacard.security.MessageDigest;
 import javacard.security.RSAPrivateKey;
+import javacard.security.Signature;
 import javacardx.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.smartcardio.ResponseAPDU;
@@ -58,6 +60,10 @@ public class SimpleAPDU {
     private static AESKey keyEncryptCard = null;
     private static AESKey keyMacPcCard = null;
     private static AESKey keyEncryptCardPc = null;
+    
+    private static MessageDigest hash = null;
+    
+    private static short randLength = 44;
     
     //KeyPair randPCKeyPair = null;
     
@@ -224,7 +230,7 @@ public class SimpleAPDU {
             //TODO: Read key.bin
             File keyFile = new File("key.bin");
             byte[] keyArray = new byte[(int) keyFile.length()];
-            System.out.println(keyFile.length());
+            //System.out.println(keyFile.length());
 
             try {
                 FileInputStream fis = new FileInputStream(keyFile);
@@ -237,7 +243,7 @@ public class SimpleAPDU {
                 e.printStackTrace();
             }
 
-            System.out.println(CardMngr.bytesToHex(keyArray));
+            //System.out.println(CardMngr.bytesToHex(keyArray));
             //TODO: Read count.bin
             File countFile = new File("count.bin");
             byte[] countArray = new byte[(int) countFile.length()];
@@ -253,7 +259,7 @@ public class SimpleAPDU {
                 e.printStackTrace();
             }
 
-            System.out.println(CardMngr.bytesToHex(countArray));
+            //System.out.println(CardMngr.bytesToHex(countArray));
 
             Cipher encryptCipherCBC = null;// MILAN
             Cipher decryptCipherCBC = null;
@@ -274,7 +280,7 @@ public class SimpleAPDU {
             System.arraycopy(NEW_USER_PIN, 0, data_PC_Card_1, 0, NEW_USER_PIN.length);
             System.arraycopy(countArray, 0, data_PC_Card_1, NEW_USER_PIN.length, countArray.length);
 
-            System.out.println(CardMngr.bytesToHex(data_PC_Card_1));
+            //System.out.println(CardMngr.bytesToHex(data_PC_Card_1));
             short additionalDataLen_PC_Card_1 = (short) (NEW_USER_PIN.length + countArray.length + 8); //PIN=4 + count=4
             //System.out.println()
             byte[] apdu_PC_Card_1 = new byte[CardMngr.HEADER_LENGTH + additionalDataLen_PC_Card_1];
@@ -299,14 +305,14 @@ public class SimpleAPDU {
                 // TODO: send proper APDU
                 startTime = System.currentTimeMillis();
                 ResponseAPDU output = cardManager.sendAPDU(apdu_PC_Card_1);
-                endTime = System.currentTimeMillis();
+                //endTime = System.currentTimeMillis();
                 response_PC_Card_1 = output.getBytes();
                 cardManager.DisconnectFromCard();
             } else {
                 System.out.println("Failed to connect to card");
             }
 
-            System.out.println(CardMngr.bytesToHex(response_PC_Card_1));
+            //System.out.println(CardMngr.bytesToHex(response_PC_Card_1));
 
             if ((response_PC_Card_1[response_PC_Card_1.length - 2] == -112) && (response_PC_Card_1[response_PC_Card_1.length - 1] == 0)) {
 
@@ -317,17 +323,17 @@ public class SimpleAPDU {
 
             decryptCipherCBC.doFinal(response_PC_Card_1, (short) 0, (short) (response_PC_Card_1.length - 2), tempBuff, (short) 0);
 
-            System.out.println(CardMngr.bytesToHex(tempBuff));
+            //System.out.println(CardMngr.bytesToHex(tempBuff));
             
-            byte[] cardRandom = new byte[44];
+            byte[] cardRandom = new byte[randLength];
             byte[] counterFromCard = new byte[4];
             
-            System.arraycopy(tempBuff, 0, cardRandom, 0, 44);
-            System.arraycopy(tempBuff, 44, counterFromCard, 0, 4);
+            System.arraycopy(tempBuff, 0, cardRandom, 0, randLength);
+            System.arraycopy(tempBuff, randLength, counterFromCard, 0, 4);
             
 
-            System.out.println(CardMngr.bytesToHex(cardRandom));
-            System.out.println(CardMngr.bytesToHex(counterFromCard));
+            //System.out.println("card Random"+CardMngr.bytesToHex(cardRandom));
+            //System.out.println("counter From Card: "+CardMngr.bytesToHex(counterFromCard));
            
 
             byte[] countCheck = new byte[countArray.length];
@@ -359,43 +365,47 @@ public class SimpleAPDU {
                 System.exit(1);
             }
 
-            System.out.println("TOTAL TIME FOR PC_CARD_1 = " + (endTime - startTime) + " msecs");
+            //System.out.println("TOTAL TIME FOR PC_CARD_1 = " + (endTime - startTime) + " msecs");
             
             
-            
-            byte[] pcRandom = new byte[44];
-            byte[] pcCardRandom = new byte[88];
-            byte[] cardPcRandom = new byte[88];
+            hash = MessageDigest.getInstance(MessageDigest.ALG_SHA, false);
+            byte[] pcRandom = new byte[randLength];
+            byte[] pcCardRandom = new byte[2*randLength];
+            byte[] cardPcRandom = new byte[2*randLength];
             SecureRandom sRandom = SecureRandom.getInstance("SHA1PRNG");
             sRandom.nextBytes(pcRandom);
-            System.out.println(CardMngr.bytesToHex(pcRandom));
+            //System.out.println("PC Random: "+CardMngr.bytesToHex(pcRandom));
             
-            System.arraycopy(pcRandom, 0, pcCardRandom, 0, pcRandom.length);
-            System.arraycopy(cardRandom, 0, pcCardRandom, pcRandom.length, cardRandom.length);
+            //System.arraycopy(pcRandom, 0, pcCardRandom, 0, pcRandom.length);
+            //System.arraycopy(cardRandom, 0, pcCardRandom, pcRandom.length, cardRandom.length);
             
             System.arraycopy(cardRandom, 0, cardPcRandom, 0, cardRandom.length);
             System.arraycopy(pcRandom, 0, cardPcRandom, cardRandom.length, pcRandom.length);
             
-            
+            byte[] keyFromHash = new byte[32];
             byte[] hashBuffer = new byte[20];
-            hashBuffer = generateHMAC(cardRandom, aesKey);            
-            //System.out.println(CardMngr.bytesToHex(hashBuffer));
+            /*hashBuffer = generateHMAC(cardRandom, aesKey);            
+            //System.out.println(CardMngr.bytesToHex(hashBuffer));*/
             
             keyEncryptCard = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);                       
-            byte[] keyFromHash = new byte[32];
+            //byte[] keyFromHash = new byte[32];
+            hash.doFinal(cardRandom, (short) 0, (short) cardRandom.length, hashBuffer, (short) 0);
             keyFromHash = hashToKey(hashBuffer);
             keyEncryptCard.setKey(keyFromHash, (short) 0);
             
-            keyMacPcCard = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false); 
-            hashBuffer = generateHMAC(pcCardRandom, aesKey);            
+            /*keyMacPcCard = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false); 
+            //hashBuffer = generateHMAC(pcCardRandom, aesKey);   
+            hash.doFinal(pcCardRandom, (short) 0, (short) pcCardRandom.length, hashBuffer, (short) 0);
             keyFromHash = hashToKey(hashBuffer);
-            keyMacPcCard.setKey(keyFromHash, (short) 0);
+            keyMacPcCard.setKey(keyFromHash, (short) 0);*/
             
             keyEncryptCardPc = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false); 
-            hashBuffer = generateHMAC(cardPcRandom, aesKey);            
+            //hashBuffer = generateHMAC(cardPcRandom, aesKey);   
+            hash.doFinal(cardPcRandom, (short) 0, (short) cardPcRandom.length, hashBuffer, (short) 0);
+            //System.out.println("keyEncryptCardPC: "+CardMngr.bytesToHex(hashBuffer));
             keyFromHash = hashToKey(hashBuffer);
             keyEncryptCardPc.setKey(keyFromHash, (short) 0);
-            
+            //System.out.println("keyEncryptCardPc keyFromHash: "+CardMngr.bytesToHex(keyFromHash));
             
 
             
@@ -403,9 +413,11 @@ public class SimpleAPDU {
             //------------------------ PC_CARD_2 START----------------------------
             
             
-            byte[] pcRandomHMAC = generateHMAC(pcRandom, keyMacPcCard); 
+            byte[] pcRandomHMAC = new byte[20];//generateHMAC(pcRandom, keyMacPcCard); 
+            hash.doFinal(pcRandom, (short) 0, (short) pcRandom.length, pcRandomHMAC, (short) 0);
+            //System.out.println("PC Random MAC: "+CardMngr.bytesToHex(pcRandomHMAC));
           
-            byte[] data_PC_Card_2 = new byte[64]; 
+            byte[] data_PC_Card_2 = new byte[randLength + 20]; 
             
             System.arraycopy(pcRandom, 0, data_PC_Card_2, 0, pcRandom.length);
             System.arraycopy(pcRandomHMAC, 0, data_PC_Card_2, pcRandom.length, pcRandomHMAC.length);           
@@ -446,39 +458,51 @@ public class SimpleAPDU {
                 System.out.println("Failed to connect to card");
             }
 
-            System.out.println(CardMngr.bytesToHex(response_PC_Card_2));
+            //System.out.println("response PC Card 2: "+CardMngr.bytesToHex(response_PC_Card_2));
 
             if ((response_PC_Card_2[response_PC_Card_2.length - 2] == -112) && (response_PC_Card_2[response_PC_Card_2.length - 1] == 0)) {
 
                 System.out.println("PC_CARD_2 DONE !!");
             }
 
-            
+            System.out.println("TOTAL TIME FOR PC_CARD_1_2 = " + (endTime - startTime) + " msecs");
             byte[] finalPass = new byte[response_PC_Card_2.length - 2];
             
             decryptCipherCBC.init(keyEncryptCardPc, Cipher.MODE_DECRYPT);
+            
             decryptCipherCBC.doFinal(response_PC_Card_2, (short) 0, (short) (response_PC_Card_2.length - 2), finalPass, (short) 0);
             
-            System.out.println(CardMngr.bytesToHex(finalPass));
+            //System.out.println("final Pass: "+CardMngr.bytesToHex(finalPass));
             
             byte[] passPhrase = new byte[12];
             
             System.arraycopy(finalPass, 0, passPhrase, 0, passPhrase.length);
             System.arraycopy(finalPass, passPhrase.length, hashBuffer, 0, hashBuffer.length);
             
+            //System.out.println("pass Phrase: "+CardMngr.bytesToHex(passPhrase));
+            //System.out.println("pass Phrase Hash: "+CardMngr.bytesToHex(hashBuffer));
+            
             //byte[] passPhraseMac = generateHMAC(passPhrase, keyMacPcCard);
             
-            if(Util.arrayCompare(generateHMAC(passPhrase, keyMacPcCard), (short)0, hashBuffer, (short)0, (short)hashBuffer.length) == 0) {
+            byte[] passPhraseHash = new byte[20];
+            
+            hash.doFinal(passPhrase, (short) 0, (short) passPhrase.length, passPhraseHash, (short) 0);
+            //System.out.println("pass Phrase Hash in PC: "+CardMngr.bytesToHex(passPhraseHash));
+            if(Util.arrayCompare(passPhraseHash, (short)0, hashBuffer, (short)0, (short)hashBuffer.length) == 0) {
                 System.out.println("PASS PHRASE RECEIVED CORRECTLY");
             } else {
                 System.out.println("WRONG PASS PHRASE RECEIVED");
             }
             
             
-            passwordAsString = CardMngr.convertHexToString(CardMngr.bytesToHex2(passPhrase));
-            System.out.println(passwordAsString);
+            /*passwordAsString = CardMngr.convertHexToString(CardMngr.bytesToHex2(passPhrase));
+            System.out.println("passWord: "+passwordAsString);
             
-            //return passwordAsString;
+            byte[] shaCheck = {(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05, (byte) 0x06, (byte) 0x07, (byte) 0x08, (byte) 0x09, (byte) 0x0a, (byte) 0x0b, (byte) 0x0c};
+            
+            hash.doFinal(shaCheck, (short)0, (short)shaCheck.length, hashBuffer, (short)0);
+            System.out.println("shaCheck: "+CardMngr.bytesToHex(hashBuffer));*/
+            
              
         } catch (Exception ex) {
             System.out.println("Exception : " + ex);
@@ -564,9 +588,21 @@ public class SimpleAPDU {
             pc_hash.doFinal(temp52, (short) 0, (short) (hashLen + keyLen), hash, (short) 0);
         }
         
-        System.out.println(CardMngr.bytesToHex(hash));
+        //System.out.println(CardMngr.bytesToHex(hash));
 
         return hash;
+        
+        /*byte[] hmac = JCSystem.makeTransientByteArray((short) 20, JCSystem.CLEAR_ON_RESET);   
+        hmacKey = (HMACKey)KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_HMAC_SHA_1_BLOCK_64, false);
+
+        sessionMAC = Signature.getInstance(Signature.ALG_HMAC_SHA1, false);
+        //System.out.println(m_sessionMAC.getLength());
+        sessionMAC.init(aKey, Signature.MODE_SIGN);
+        //System.out.println(m_desKey.getSize());
+
+        // SIGN INCOMING BUFFER
+       sessionMAC.sign(buffer, (short)0, (short)buffer.length, hmac, (short) 0);
+       return hmac;*/
         
     }    
     
