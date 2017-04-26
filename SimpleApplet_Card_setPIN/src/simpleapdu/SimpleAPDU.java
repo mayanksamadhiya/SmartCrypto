@@ -1,6 +1,12 @@
 package simpleapdu;
 
 import applets.SimpleApplet;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.security.SecureRandom;
 import java.util.Random;
 import javax.smartcardio.ResponseAPDU;
@@ -29,7 +35,7 @@ public class SimpleAPDU {
     public static void main(String[] args) {
         try {
             //
-            // SIMULATED CARDS xpatnaik
+            // SIMULATED CARDS
             //
             
             // Prepare simulated card 
@@ -79,6 +85,126 @@ public class SimpleAPDU {
 		    System.out.println("ADMIN PIN SET !!");
 	    }
 
+            
+             //---------------------- TODO: apdu for INS_SETKEY to set a new key K after Verification--------------------------------
+            //short additionalDataLenPIN = 4;
+            byte apdu_verifyPIN[] = new byte[CardMngr.HEADER_LENGTH + additionalDataLenPIN];
+            apdu_verifyPIN[CardMngr.OFFSET_CLA] = (byte) 0xB0;// class B0
+            apdu_verifyPIN[CardMngr.OFFSET_INS] = (byte) 0x55;// for INS_VERIFYPIN
+            apdu_verifyPIN[CardMngr.OFFSET_P1] = (byte) 0x00;
+            apdu_verifyPIN[CardMngr.OFFSET_P2] = (byte) 0x00;
+            apdu_verifyPIN[CardMngr.OFFSET_LC] = (byte) additionalDataLenPIN;// 4 byte data for PIN
+
+            // TODO: if additional data are supplied (additionalDataLen != 0), then copy input data here starting from CardMngr.CardMngr.OFFSET_DATA
+            if (additionalDataLenPIN != 0) {
+                System.arraycopy(NEW_USER_PIN, 0, apdu_verifyPIN, CardMngr.OFFSET_DATA, additionalDataLenPIN);
+            }
+
+            // NOTE: we are using sendAPDUSimulator() instead of sendAPDU()
+            //byte[] responseVerifyPIN = cardManager.sendAPDUSimulator(apdu_verifyPIN); 
+            byte[] responseVerifyPIN = null;
+            //
+            // REAL CARDS
+            //
+            // TODO: Try same with real card
+            if (cardManager.ConnectToCard()) {
+
+                // Select our application on card
+                cardManager.sendAPDU(SELECT_SIMPLEAPPLET);
+
+                // TODO: send proper APDU
+                ResponseAPDU output = cardManager.sendAPDU(apdu_verifyPIN);
+                responseVerifyPIN = output.getBytes();
+
+                cardManager.DisconnectFromCard();
+
+            } else {
+                System.out.println("Failed to connect to card");
+            }
+
+            System.out.println(CardMngr.bytesToHex(responseVerifyPIN));
+
+            if ((responseVerifyPIN[0] == -112) && (responseVerifyPIN[1] == 0)) {
+
+                System.out.println("PIN VERIFIED !!");
+
+                //------------------------GENERATE RANDOM KEY ON CARD------------------------------------------
+                short keyLength = 32;
+                short countLen = 4;
+                byte apdu_getKEY[] = new byte[CardMngr.HEADER_LENGTH + countLen];
+                apdu_getKEY[CardMngr.OFFSET_CLA] = (byte) 0xB0;
+                apdu_getKEY[CardMngr.OFFSET_INS] = (byte) 0x52;// Set Key
+                apdu_getKEY[CardMngr.OFFSET_P1] = (byte) keyLength;
+                apdu_getKEY[CardMngr.OFFSET_P2] = (byte) countLen;
+                apdu_getKEY[CardMngr.OFFSET_LC] = (byte) countLen;
+
+                byte[] randCount = new byte[countLen];
+                SecureRandom sRandom = new SecureRandom();
+                sRandom.nextBytes(randCount);
+                //System.out.println(CardMngr.bytesToHex(randCount));
+
+                if (countLen != 0) {
+                    System.arraycopy(randCount, 0, apdu_getKEY, CardMngr.OFFSET_DATA, countLen);
+                }
+
+                System.out.println(CardMngr.bytesToHex(randCount));
+
+                byte[] responseGetKEY = null;
+                // NOTE: we are using sendAPDUSimulator() instead of sendAPDU()
+                //      response = cardManager.sendAPDUSimulator(Randapdu); 
+                if (cardManager.ConnectToCard()) {
+                    // Select our application on card
+                    cardManager.sendAPDU(SELECT_SIMPLEAPPLET);
+
+                    // TODO: send proper APDU
+                    //startTime = System.currentTimeMillis();
+                    ResponseAPDU output = cardManager.sendAPDU(apdu_getKEY);
+                    //endTime = System.currentTimeMillis();
+                    responseGetKEY = output.getBytes();
+                    cardManager.DisconnectFromCard();
+                } else {
+                    System.out.println("Failed to connect to card");
+                }
+
+                System.out.println(CardMngr.bytesToHex(responseGetKEY));
+
+                if ((responseGetKEY[responseGetKEY.length - 2] == -112) && (responseGetKEY[responseGetKEY.length - 1] == 0)) {
+
+                    System.out.println("RANDOM AES KEY SET !!");
+                }
+                //System.out.println("TOTAL TIME FOR KEY SETTING = " + (endTime - startTime) + " msecs");
+                
+                byte[] keyToWrite = new byte[keyLength];
+                byte[] countToWrite = new byte[countLen];
+                System.arraycopy(responseGetKEY, 0, keyToWrite, 0, keyLength);
+                System.arraycopy(responseGetKEY, keyLength, countToWrite, 0, countLen);
+                
+                System.out.println(CardMngr.bytesToHex(keyToWrite));
+                System.out.println(CardMngr.bytesToHex(countToWrite));
+
+                File keyFile = new File("D:\\Masaryk\\SEM2\\PV204 Security Technologies\\PC_Application.v1.0\\_source\\FileEncoderApplication_SymSec1\\key.bin");
+                File countFile = new File("D:\\Masaryk\\SEM2\\PV204 Security Technologies\\PC_Application.v1.0\\_source\\FileEncoderApplication_SymSec1\\count.bin");
+                try {
+                    try (OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(keyFile))) {
+                        outputStream.write(keyToWrite);
+                        outputStream.close();
+                    }
+                    try (OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(countFile))) {
+                        outputStream.write(countToWrite);
+                        outputStream.close();
+                    }
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            } else {
+                System.out.println("PIN VERIFICATION FAILED !!");
+            }
+
+     
+            
             
         } catch (Exception ex) {
             System.out.println("Exception : " + ex);
