@@ -61,11 +61,7 @@ public class SimpleApplet extends javacard.framework.Applet {
     private RandomData m_secureRandom = null;
     private MessageDigest m_hash = null;
     private OwnerPIN m_pin = null;
-    //private Signature m_sign = null;
-    //private KeyPair m_keyPair = null;
-    //private Key m_privateKey = null;
-    //private Key m_publicKey = null;
-    //private OwnerPIN m_adminPIN = null;
+    
     private short m_apduLogOffset = (short) 0;
     // TEMPORARRY ARRAY IN RAM
     private byte m_ramArray[] = null;
@@ -76,28 +72,25 @@ public class SimpleApplet extends javacard.framework.Applet {
     private byte m_counter[] = null;
 
     //User password
-    private byte m_password[] = null;
+    private byte m_password[] = {(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05, (byte) 0x06, (byte) 0x07, (byte) 0x08, (byte) 0x09, (byte) 0x0a, (byte) 0x0b, (byte) 0x0c};
+    
 
     //pin length
     private byte m_pin_length = (byte) 4;
 
-    //private Key randPriv = null;//(RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_2, false);
-    //private Key randPub = null;//(RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_2048, false);
-    // private KeyPair randKeyPair = null;
-    //private Cipher randCipher = null;
+    private Key randPriv = null;//(RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_2, false);
+    private Key randPub = null;//(RSAPublicKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_2048, false);
+    private KeyPair randKeyPair = null;
+    private Cipher randCipher = null;
     private byte[] cardRandom = null;
+    
+    private Key pcPub = null;
+    private Cipher pcCipher = null;
 
     private AESKey m_keyEncryptCard = null;
     private AESKey m_keyMacPcCard = null;
     private AESKey m_keyEncryptCardPc = null;
     
-    //private   Signature      m_sessionMAC = null;
-    //private   HMACKey         m_hmacKey = null;
-
-    private byte[] passPhrase = {(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05, (byte) 0x06, (byte) 0x07, (byte) 0x08, (byte) 0x09, (byte) 0x0a, (byte) 0x0b, (byte) 0x0c};
-    //private RSAPrivateKey b;
-    //private Cipher dhCipher;
-
     //private byte[] preHOTP = null;//MILAN : container to mix the user challenge and card PIN
     private byte ADMIN_PIN[] = {(byte) 0x31, (byte) 0x32, (byte) 0x33, (byte) 0x34};// admin PIN set to 1234
 
@@ -138,8 +131,7 @@ public class SimpleApplet extends javacard.framework.Applet {
             m_dataArray = new byte[ARRAY_LENGTH];
             Util.arrayFillNonAtomic(m_dataArray, (short) 0, ARRAY_LENGTH, (byte) 0);
 
-            //m_dataArray = new byte[ARRAY_LENGTH_SHORT];
-            //Util.arrayFillNonAtomic(m_dataArray, (short) 0, ARRAY_LENGTH_SHORT, (byte) 0);
+            
             // CREATE RANDOM DATA GENERATORS
             m_secureRandom = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
 
@@ -162,23 +154,11 @@ public class SimpleApplet extends javacard.framework.Applet {
             m_aesKey.setKey(m_dataArray, (short) 0);
 
             // MILAN : INIT CBC CIPHERS WITH NEW KEY
-            //m_encryptCipherCBC.init(m_aesKey, Cipher.MODE_ENCRYPT);
-            //m_decryptCipherCBC.init(m_aesKey, Cipher.MODE_DECRYPT);
+            
             m_pin = new OwnerPIN((byte) 3, m_pin_length); // 5 tries, 4 digits in pin
             m_pin.update(m_dataArray, (byte) 0, (byte) 4); // set initial random pin
 
-            // CREATE RSA KEYS AND PAIR 
-            //m_keyPair = new KeyPair(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_2048);
-            //m_keyPair.genKeyPair(); // Generate fresh key pair on-card
-            //m_publicKey = m_keyPair.getPublic();
-            //m_privateKey = m_keyPair.getPrivate();
-            // SIGNATURE ENGINE    
-            //m_sign = Signature.getInstance(Signature.ALG_RSA_SHA_PKCS1, false);
-            // INIT WITH PRIVATE KEY
-            //m_sign.init(m_privateKey, Signature.MODE_SIGN);
-            //m_adminPIN = new OwnerPIN((byte) 5, (byte) 4); // 5 tries, 4 digits in pin
-            //byte ADMIN_PIN[] = {(byte) 0x31, (byte) 0x32, (byte) 0x33, (byte) 0x34};// admin PIN set to 1234
-            //m_adminPIN.update(ADMIN_PIN, (short) 0, (byte) 4);
+            
             // INIT HASH ENGINE
             m_hash = MessageDigest.getInstance(MessageDigest.ALG_SHA, false);
             //m_sessionMAC = Signature.getInstance(Signature.ALG_AES_MAC_128_NOPAD, false); // MILAN
@@ -186,16 +166,19 @@ public class SimpleApplet extends javacard.framework.Applet {
             isOP2 = true;
             //Initialize g
 
-            //randKeyPair = new KeyPair(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024);
-            //randKeyPair.genKeyPair(); 
-            //randPriv = randKeyPair.getPrivate();
-            //randPub = randKeyPair.getPublic();
-            //randCipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);            
-            //randCipher.init(randPriv, Cipher.MODE_DECRYPT);
-            //randCipher.init(randPub, Cipher.MODE_ENCRYPT);
-            //randKeyPair.genKeyPair();
-            //bPriv = dhKeyPair.getPrivate();
-            //dhCipher = Cipher.getInstance(Cipher.ALG_RSA_NOPAD, false);
+            randKeyPair = new KeyPair(KeyPair.ALG_RSA_CRT, KeyBuilder.LENGTH_RSA_1024);
+            randKeyPair.genKeyPair(); 
+            randPriv = randKeyPair.getPrivate();
+            randPub = randKeyPair.getPublic();
+            randCipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);            
+            randCipher.init(randPriv, Cipher.MODE_DECRYPT);
+            randCipher.init(randPub, Cipher.MODE_ENCRYPT);
+            
+            pcPub = KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, true);
+            //pcCipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);            
+            //pcCipher.init(pcPub, Cipher.MODE_ENCRYPT);
+            
+            
         } else {
             // <IF NECESSARY, USE COMMENTS TO CHECK LENGTH >
             // if(length != <PUT YOUR PARAMETERS LENGTH> )
@@ -273,15 +256,14 @@ public class SimpleApplet extends javacard.framework.Applet {
                     case INS_HASH:
                         Hash(apdu);
                         break;
-                    case INS_RANDOM:
-                        Random(apdu);
-                        break;
+                    
                     case INS_VERIFYPIN:
                         VerifyPIN(apdu);
                         break;
                     case INS_SETPIN:
                         SetPIN(apdu);
                         break;
+                                           
                     case INS_GETAPDUBUFF:
                         GetAPDUBuff(apdu);
                         break;
@@ -292,11 +274,8 @@ public class SimpleApplet extends javacard.framework.Applet {
                     case INS_ASYMSEC_PC_CARD_1:
                         AsymSec_PC_Card_1(apdu);
                         break;
-                    case INS_SYMSEC_PC_CARD_1:
-                        SymSec_PC_Card_1(apdu);
-                        break;
-                    case INS_SYMSEC_PC_CARD_2:
-                        SymSec_PC_Card_2(apdu);
+                    case INS_ASYMSEC_PC_CARD_2:
+                        AsymSec_PC_Card_2(apdu);
                         break;
                     default:
                         // The INS code is not supported by the dispatcher
@@ -338,7 +317,7 @@ public class SimpleApplet extends javacard.framework.Applet {
     }
 
     void AsymSec_PC_Card_1(APDU apdu) {
-        /*byte[] apdubuf = apdu.getBuffer();
+        byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
         
         if ((apdubuf[ISO7816.OFFSET_P2] != 0) || (apdubuf[ISO7816.OFFSET_P1] != 0)) {
@@ -357,15 +336,14 @@ public class SimpleApplet extends javacard.framework.Applet {
             ISOException.throwIt(SW_BAD_PASSWORD);
         }
 
-        //
+        
         byte[] cardPubKeyMod = null;
         byte[] cardPubKeyExp = null;
         short randPubKeyModSize = 0;
         short randPubKeyExpSize = 3;
         //short randPrivKeySize = 0;
         try {
-            
-            
+                        
             //randPrivKeySize = (short)(randPriv.getSize()/(short) 8);
             randPubKeyModSize = (short) (randPub.getSize()/(short) 8);
             
@@ -394,122 +372,61 @@ public class SimpleApplet extends javacard.framework.Applet {
         //apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short)(maxLength+m_counter.length));
         //Util.arrayCopyNonAtomic(m_ramArray, (short) 0, apdubuf, ISO7816.OFFSET_CDATA, (short) (16));
         
-        apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short)(m_counter.length + cardPubKeyMod.length+ cardPubKeyExp.length+9));*/
+        apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short)(m_counter.length + cardPubKeyMod.length+ cardPubKeyExp.length+9));
     }
-
-    void SymSec_PC_Card_1(APDU apdu) {
+    
+    
+    void AsymSec_PC_Card_2(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-
+        
         if ((apdubuf[ISO7816.OFFSET_P2] != 0) || (apdubuf[ISO7816.OFFSET_P1] != 0)) {
             ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
-        m_encryptCipherCBC.init(m_aesKey, Cipher.MODE_ENCRYPT);
-        m_decryptCipherCBC.init(m_aesKey, Cipher.MODE_DECRYPT);
         m_decryptCipherCBC.doFinal(apdubuf, ISO7816.OFFSET_CDATA, dataLen, m_ramArray, (short) 0);
-
-        if (m_pin.check(m_ramArray, (short) 0, m_pin_length) == false) {
-            ISOException.throwIt(SW_KEY_LENGTH_BAD);
-        }
-
-        if (Util.arrayCompare(m_ramArray, m_pin_length, m_counter, (short) 0, (short) m_counter.length) == 0) {
-            incrementCounter(m_counter);
-        } else {
-            ISOException.throwIt(SW_OBJECT_NOT_AVAILABLE);
-        }
-
-        // generating a random number of size 128 bytes
-        cardRandom = JCSystem.makeTransientByteArray(randLength, JCSystem.CLEAR_ON_RESET);//new byte[randLength];
-        //byte[] cardRandomTemp = JCSystem.makeTransientByteArray((short)(randLength+(short)24), JCSystem.CLEAR_ON_RESET);//new byte[randLength];
-        //Util.arrayCopyNonAtomic(cardRandom, (short)0, cardRandomTemp, (short), randLength)
-        m_secureRandom.generateData(cardRandom, (short) 0, randLength);
-        Util.arrayCopyNonAtomic(cardRandom, (short) 0, m_ramArray, (short) 0, randLength);
-        Util.arrayCopyNonAtomic(m_counter, (short) 0, m_ramArray, randLength, (short) m_counter.length);
-        //m_hash.doFinal(cardRandom, (short) 0, (short) cardRandom.length, hashBuffer, (short) 0);
-
-        m_encryptCipherCBC.doFinal(m_ramArray, (short) 0, (short) (m_counter.length + randLength), apdubuf, ISO7816.OFFSET_CDATA);
-
-        m_keyEncryptCard = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
-        byte[] hashBuffer = JCSystem.makeTransientByteArray((short) 20, JCSystem.CLEAR_ON_RESET);
-        //hashBuffer = generateHMAC(cardRandom, m_aesKey);
-        m_hash.doFinal(cardRandom, (short) 0, (short) cardRandom.length, hashBuffer, (short) 0);
-        byte[] keyFromHash = JCSystem.makeTransientByteArray((short) 32, JCSystem.CLEAR_ON_RESET);
-        keyFromHash = hashToKey(hashBuffer);
-        m_keyEncryptCard.setKey(keyFromHash, (short) 0);
-
-        //Util.arrayCopyNonAtomic(m_ramArray, (short) 0, apdubuf, ISO7816.OFFSET_CDATA, (short)(m_counter.length + cardPubKey.length));
-        //apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short)(maxLength+m_counter.length));
-        //Util.arrayCopyNonAtomic(m_ramArray, (short) 0, apdubuf, ISO7816.OFFSET_CDATA, (short) (16));
-        apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short) (m_counter.length + randLength));
-    }
-
-    void SymSec_PC_Card_2(APDU apdu) {
-        byte[] apdubuf = apdu.getBuffer();
-        short dataLen = apdu.setIncomingAndReceive();
-        byte[] hashBuffer = JCSystem.makeTransientByteArray((short) 20, JCSystem.CLEAR_ON_RESET);
-        byte[] keyFromHash = JCSystem.makeTransientByteArray((short)32, JCSystem.CLEAR_ON_RESET);
-
-        if ((apdubuf[ISO7816.OFFSET_P2] != 0) || (apdubuf[ISO7816.OFFSET_P1] != 0)) {
-            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-        }
-
-        m_decryptCipherCBC.init(m_keyEncryptCard, Cipher.MODE_DECRYPT);
-
-        m_decryptCipherCBC.doFinal(apdubuf, ISO7816.OFFSET_CDATA, dataLen, m_ramArray, (short) 0);
-
-        byte[] pcRandom = JCSystem.makeTransientByteArray(randLength, JCSystem.CLEAR_ON_RESET);//new byte[124];
-        byte[] tempRandom = JCSystem.makeTransientByteArray((short) (2 * randLength), JCSystem.CLEAR_ON_RESET);//new byte[248];
-        //byte[] cardPcRandom = JCSystem.makeTransientByteArray((short) 248, JCSystem.CLEAR_ON_RESET);//new byte[248];
-        byte[] pcRandomHMAC = JCSystem.makeTransientByteArray((short) 20, JCSystem.CLEAR_ON_RESET);//new byte[20];
-
-        Util.arrayCopyNonAtomic(m_ramArray, (short) 0, pcRandom, (short) 0, randLength);
-        Util.arrayCopyNonAtomic(m_ramArray, randLength, pcRandomHMAC, (short) 0, (short) 20);
-
-        //Util.arrayCopyNonAtomic(pcRandom, (short) 0, tempRandom, (short) 0, (short) pcRandom.length);
-        //Util.arrayCopyNonAtomic(cardRandom, (short) 0, tempRandom, (short) pcRandom.length, (short) cardRandom.length);
-
+        short pcPubKeyModSize = (short) 128;
+        short pcPubKeyExpSize = (short)3;
+        short pcPubKeySize = (short)(pcPubKeyModSize + pcPubKeyExpSize);
+        byte[] pcPubKey = null;
         
-        /*m_keyMacPcCard = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false);
-        byte[] hashBuffer = generateHMAC(tempRandom, m_aesKey);
-        byte[] keyFromHash = hashToKey(hashBuffer);
-        m_keyMacPcCard.setKey(keyFromHash, (short) 0);*/
-
-        byte[] checkPcRandomHMAC = JCSystem.makeTransientByteArray((short) 20, JCSystem.CLEAR_ON_RESET);//new byte[20];
-        //checkPcRandomHMAC = generateHMAC(pcRandom, m_aesKey);
-        m_hash.doFinal(pcRandom, (short) 0, (short) pcRandom.length, checkPcRandomHMAC, (short) 0);
-        
-        if(Util.arrayCompare(pcRandomHMAC, (short)0, checkPcRandomHMAC, (short)0, (short)pcRandomHMAC.length) != 0) {
-            ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
-        }
-        
-        
-       Util.arrayCopyNonAtomic(cardRandom, (short)0, tempRandom, (short)0, (short)cardRandom.length);
-        Util.arrayCopyNonAtomic(pcRandom, (short)0, tempRandom, (short)cardRandom.length, (short)pcRandom.length);
-            
-        m_keyEncryptCardPc = (AESKey) KeyBuilder.buildKey(KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_256, false); 
-        //hashBuffer = generateHMAC(tempRandom, m_aesKey);   
-        m_hash.doFinal(tempRandom, (short) 0, (short) tempRandom.length, hashBuffer, (short) 0);
-        keyFromHash = hashToKey(hashBuffer);
-        m_keyEncryptCardPc.setKey(keyFromHash, (short) 0);
-        
+        pcPubKey = JCSystem.makeTransientByteArray(pcPubKeySize, JCSystem.CLEAR_ON_DESELECT);
+        Util.arrayCopy(m_ramArray, (short)0, pcPubKey, (short) 0, (short) pcPubKey.length);
+                
+                
+        byte[] pcPubKeyMod = JCSystem.makeTransientByteArray(pcPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
+        Util.arrayCopy(pcPubKey, (short)0, pcPubKeyMod, (short) 0, (short) pcPubKeyMod.length);
+        byte[] pcPubKeyExp = JCSystem.makeTransientByteArray(pcPubKeyExpSize, JCSystem.CLEAR_ON_DESELECT);
+        Util.arrayCopy(pcPubKey, (short)0, pcPubKeyExp, (short) 0, (short) pcPubKeyExp.length);
        
+        try {
+                 
+            //pcPubKeyMod = JCSystem.makeTransientByteArray(randPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
+            ((RSAPublicKey) pcPub).setModulus(pcPubKeyMod, (short) 0, pcPubKeyModSize );
+            //cardPubKeyExp = JCSystem.makeTransientByteArray(randPubKeyExpSize, JCSystem.CLEAR_ON_DESELECT);
+            ((RSAPublicKey) pcPub).setExponent(pcPubKeyExp, (short) 0, pcPubKeyExpSize);
+          
+        } catch (CryptoException e) {
+            short reason = e.getReason();
+            ISOException.throwIt(reason);
+        }
         
-        //hashBuffer = generateHMAC(passPhrase, m_aesKey);
-        m_hash.doFinal(passPhrase, (short) 0, (short) passPhrase.length, hashBuffer, (short) 0);
+        byte[] hashBuffer = JCSystem.makeTransientByteArray((short) 20, JCSystem.CLEAR_ON_RESET);
+        m_hash.doFinal(m_password, (short) 0, (short) m_password.length, hashBuffer, (short) 0);
         //hashBuffer = JCSystem.makeTransientByteArray((short) 20, JCSystem.CLEAR_ON_RESET);
         byte[] finalPass = JCSystem.makeTransientByteArray((short) 32, JCSystem.CLEAR_ON_RESET);//new byte[32];
-        Util.arrayCopyNonAtomic(passPhrase, (short)0, finalPass, (short)0, (short)passPhrase.length);
-        Util.arrayCopyNonAtomic(hashBuffer, (short)0, finalPass, (short)passPhrase.length, (short)hashBuffer.length);
+        Util.arrayCopyNonAtomic(m_password, (short)0, finalPass, (short)0, (short)m_password.length);
+        Util.arrayCopyNonAtomic(hashBuffer, (short)0, finalPass, (short)m_password.length, (short)hashBuffer.length);
         
-        m_encryptCipherCBC.init(m_keyEncryptCardPc, Cipher.MODE_ENCRYPT);
+        //m_encryptCipherCBC.init(m_keyEncryptCardPc, Cipher.MODE_ENCRYPT);
         m_encryptCipherCBC.doFinal(finalPass, (short)0, (short)finalPass.length, apdubuf, ISO7816.OFFSET_CDATA);
         
          
         //Util.arrayCopyNonAtomic(keyFromHash, (short) 0, apdubuf, ISO7816.OFFSET_CDATA, (short) 20);
 
         apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short)finalPass.length);
-        //apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short) 20);
+    
     }
+
 
     void incrementCounter(byte[] counter) {
         counter[3]++;
@@ -524,13 +441,7 @@ public class SimpleApplet extends javacard.framework.Applet {
         }
     }
 
-    byte[] hashToKey(byte[] hash) {
-        byte[] keyFromHash = JCSystem.makeTransientByteArray((short) 32, JCSystem.CLEAR_ON_RESET);//new byte[32];
-        Util.arrayCopyNonAtomic(hash, (short) 0, keyFromHash, (short) 0, (short) 20);
-        Util.arrayCopyNonAtomic(hash, (short) 0, keyFromHash, (short) 20, (short) 12);
-        return keyFromHash;
-    }
-
+    
 //---------------------------------------------------------SETKEY---------------------------------------
     // SET ENCRYPTION & DECRYPTION KEY
     void SetKey(APDU apdu) {
@@ -581,20 +492,6 @@ public class SimpleApplet extends javacard.framework.Applet {
         apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, m_hash.getLength());
     }
 
-//-----------------------------------------------------------RANDOM DATA-------------------------------------
-    // GENERATE RANDOM DATA
-    void Random(APDU apdu) {
-        byte[] apdubuf = apdu.getBuffer();
-        short dataLen = apdu.setIncomingAndReceive();
-
-        // GENERATE DATA
-        short randomDataLen = apdubuf[ISO7816.OFFSET_P1];
-        m_secureRandom.generateData(apdubuf, ISO7816.OFFSET_CDATA, randomDataLen);
-
-        // SEND OUTGOING BUFFER
-        apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, randomDataLen);
-    }
-
 //---------------------------------------------------------VERIFY PIN---------------------------------------
     // VERIFY PIN
     void VerifyPIN(APDU apdu) {
@@ -632,7 +529,7 @@ public class SimpleApplet extends javacard.framework.Applet {
             ISOException.throwIt(SW_BAD_PIN);
         }
     }
-
+    
     //-----------------------------------------------------------SET Password-----------------------------------------
     // SET Password 
     // Be aware - this method will allow attacker to set own Password - need to protected. 
@@ -640,92 +537,12 @@ public class SimpleApplet extends javacard.framework.Applet {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
 
-        if (dataLen != 4) {// MILAN : Check for length equal to size passed
+        if (dataLen != 12) {// MILAN : Check for length equal to size passed
             ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
         }
 
-        short adminKeyByteNumber = apdubuf[ISO7816.OFFSET_P1];
-        short adminKeyByte = apdubuf[ISO7816.OFFSET_P2];
-
-        if ((ADMIN_PIN[adminKeyByteNumber] + 5) == adminKeyByte) {// MILAN : Additional Admin PIN protection
-            // SET NEW PIN
-            //m_pin.update(apdubuf, ISO7816.OFFSET_CDATA, (byte) dataLen);
-            Util.arrayCopyNonAtomic(apdubuf, ISO7816.OFFSET_CDATA, m_password, (short) 0, dataLen);
-        } else {
-            ISOException.throwIt(SW_BAD_PASSWORD);
-        }
-    }
-
-//------------------------------HMAC
-    byte[] generateHMAC(byte[] buffer, AESKey aKey) {
-        short dataLen = (short) buffer.length;        
-        short hashLen = 20;
-        short macLen = 8;
-        short keyLen = 32;
-
-        //m_hash = MessageDigest.getInstance(MessageDigest.ALG_SHA, false);
+        Util.arrayCopyNonAtomic(apdubuf, ISO7816.OFFSET_CDATA, m_password, (short) 0, dataLen);
         
-        byte[] key = JCSystem.makeTransientByteArray(keyLen, JCSystem.CLEAR_ON_RESET);
-
-        byte[] challenge = JCSystem.makeTransientByteArray(dataLen, JCSystem.CLEAR_ON_RESET);
-
-        //byte[] temp16         = JCSystem.makeTransientByteArray((short) 16, JCSystem.CLEAR_ON_DESELECT);
-        byte[] hash = JCSystem.makeTransientByteArray(hashLen, JCSystem.CLEAR_ON_RESET);
-
-        byte[] temp32 = JCSystem.makeTransientByteArray((short) 32, JCSystem.CLEAR_ON_RESET);
-
-        //byte[] temp36         = JCSystem.makeTransientByteArray((short) 36, JCSystem.CLEAR_ON_RESET);
-        byte[] tempDataKey = JCSystem.makeTransientByteArray((short) (dataLen + keyLen), JCSystem.CLEAR_ON_RESET);
-
-        byte[] temp52 = JCSystem.makeTransientByteArray((short) 52, JCSystem.CLEAR_ON_RESET);
-
-        aKey.getKey(key, (short) 0);
-
-        Util.arrayCopyNonAtomic(buffer, (short) 0, challenge, (short) 0, dataLen);
-
-        // KEY XOR 0x363636....
-        for (short i = 0; i < keyLen; i++) {
-            //temp16[i] = (byte)(key[i] ^ 0x36);
-            temp32[i] = (byte) (key[i] ^ 0x36);
-        }
-        Util.arrayCopyNonAtomic(temp32, (short) 0, tempDataKey, (short) 0, keyLen);
-        Util.arrayCopyNonAtomic(challenge, (short) 0, tempDataKey, keyLen, dataLen);
-
-        // HASH((KEY XOR 0x363636...) || CHALLENEGE)
-        if (m_hash != null) {
-            // m_hash.doFinal(temp32, (short)0, (short)(dataLen + keyLen), hash, (short) 0);
-            m_hash.doFinal(tempDataKey, (short) 0, (short) (dataLen + keyLen), hash, (short) 0);
-        }
-
-        //KEY XOR 0x5c5c5c5c....
-        for (short i = 0; i < keyLen; i++) {
-            //temp16[i] = (byte)(key[i] ^ 0x5c);
-            temp32[i] = (byte) (key[i] ^ 0x5c);
-        }
-        Util.arrayCopyNonAtomic(temp32, (short) 0, temp52, (short) 0, keyLen);
-        Util.arrayCopyNonAtomic(hash, (short) 0, temp52, keyLen, hashLen);
-
-        // HASH((KEY XOR 0x5c5c5c5c...) || (HASH((KEY XOR 0x363636...) || CHALLENEGE)))
-        if (m_hash != null) {
-            //m_hash.doFinal(temp36, (short)0, (short)(dataLen + keyLen), hash, (short) 0);
-            m_hash.doFinal(temp52, (short) 0, (short) (hashLen + keyLen), hash, (short) 0);
-        }
-
-        //System.out.println(CardMngr.bytesToHex(hash));
-        return hash;
-        //return null;
-
-        /*byte[] hmac = JCSystem.makeTransientByteArray((short) 20, JCSystem.CLEAR_ON_RESET);   
-
-        m_sessionMAC = Signature.getInstance(Signature.ALG_HMAC_SHA1, false);
-        //System.out.println(m_sessionMAC.getLength());
-        m_sessionMAC.init(aKey, Signature.MODE_SIGN);
-        //System.out.println(m_desKey.getSize());
-
-        // SIGN INCOMING BUFFER
-       m_sessionMAC.sign(buffer, (short)0, (short)buffer.length, hmac, (short) 0);
-       return hmac;*/
-
     }
 
 //--------------------------------------------------GENERATE BUFFER-------------------------------------
