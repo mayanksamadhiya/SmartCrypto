@@ -124,11 +124,11 @@ public class SimpleAPDU {
 
             System.out.println(CardMngr.bytesToHex(responseVerifyPIN));
 
-            if ((responseVerifyPIN[responseVerifyPIN.length - 2] == -112) && (responseVerifyPIN[responseVerifyPIN.length - 1] == 0)) {
+            if ((responseVerifyPIN[0] == -112) && (responseVerifyPIN[1] == 0)) {
 
                 System.out.println("PIN VERIFIED !!");
-                
-                //------------------------GENERATE RANDOM KEY ON CARD AND SET COUNTER------------------------------------------
+
+                //------------------------GENERATE RANDOM KEY ON CARD------------------------------------------
                 short keyLength = 32;
                 short countLen = 4;
                 byte apdu_getKEY[] = new byte[CardMngr.HEADER_LENGTH + countLen];
@@ -182,8 +182,8 @@ public class SimpleAPDU {
                 System.out.println(CardMngr.bytesToHex(keyToWrite));
                 System.out.println(CardMngr.bytesToHex(countToWrite));
 
-                File keyFile = new File("../PC_Application.v1.0_1/_source/FileEncoderApplication_AsymSec1/key.bin");
-                File countFile = new File("../PC_Application.v1.0_1/_source/FileEncoderApplication_AsymSec1/count.bin");
+                File keyFile = new File("D:\\Masaryk\\SEM2\\PV204 Security Technologies\\PC_Application.v1.0\\_source\\FileEncoderApplication_SymSec1\\key.bin");
+                File countFile = new File("D:\\Masaryk\\SEM2\\PV204 Security Technologies\\PC_Application.v1.0\\_source\\FileEncoderApplication_SymSec1\\count.bin");
                 try {
                     try (OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(keyFile))) {
                         outputStream.write(keyToWrite);
@@ -203,7 +203,7 @@ public class SimpleAPDU {
                 System.out.println("PIN VERIFICATION FAILED !!");
             }
 
-                     
+     
             
             
         } catch (Exception ex) {

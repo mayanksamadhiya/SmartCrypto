@@ -613,4 +613,3 @@ public class SimpleAPDU {
         return keyFromHash;
     }
 }
-

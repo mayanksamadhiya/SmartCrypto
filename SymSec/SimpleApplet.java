@@ -740,4 +740,3 @@ public class SimpleApplet extends javacard.framework.Applet {
         apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, tempLength);
     }
 }
-
