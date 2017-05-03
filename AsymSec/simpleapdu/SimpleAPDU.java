@@ -43,12 +43,6 @@ public class SimpleAPDU {
         (byte) 0x73, (byte) 0x69, (byte) 0x6D, (byte) 0x70, (byte) 0x6C,
         (byte) 0x65, (byte) 0x61, (byte) 0x70, (byte) 0x70, (byte) 0x6C, (byte) 0x65, (byte) 0x74};
 
-    private static byte NEW_KEY_256[] = {(byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05, (byte) 0x06,
-        (byte) 0x07, (byte) 0x08, (byte) 0x09, (byte) 0x10, (byte) 0x11,
-        (byte) 0x12, (byte) 0x13, (byte) 0x15, (byte) 0x15, (byte) 0x16, (byte) 0x01, (byte) 0x02, (byte) 0x03, (byte) 0x04, (byte) 0x05, (byte) 0x06,
-        (byte) 0x07, (byte) 0x08, (byte) 0x09, (byte) 0x10, (byte) 0x11,
-        (byte) 0x12, (byte) 0x13, (byte) 0x15, (byte) 0x15, (byte) 0x16};
-
     private static Key cardPriv = null;//(RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_2, false);
     private static Key cardPub = null;
     //private static Cipher randPCCipher = null;
@@ -56,8 +50,9 @@ public class SimpleAPDU {
     private static MessageDigest hash = null;
     
     
+    //public static String main(String[] args) {
     public static void main(String[] args) {
-
+        String passwordAsString = new String();
         try {
             //
             // SIMULATED CARDS
@@ -171,14 +166,23 @@ public class SimpleAPDU {
             decryptCipher.doFinal(response_PC_Card_1, (short) 0, (short) (response_PC_Card_1.length - 2), tempBuff, (short) 0);
 
             System.out.println(CardMngr.bytesToHex(tempBuff));
-            System.arraycopy(tempBuff, 0, cardPubKeyMod, 0, 128);
-            System.arraycopy(tempBuff, 128, cardPubKeyExp, 0, 3);
-            System.arraycopy(tempBuff, 128 + 3, counterFromCard, 0, 4);
+            System.arraycopy(tempBuff, 0, cardPubKeyMod129, 0, 129);
+            System.arraycopy(tempBuff, 129, cardPubKeyExp, 0, 3);
+            System.arraycopy(tempBuff, 129 + 3, counterFromCard, 0, 4);
             
-            System.arraycopy(cardPubKeyMod, 0, cardPubKeyMod129, 1, 128);
+            if(cardPubKeyMod129[0] == 0x00)
+                System.arraycopy(cardPubKeyMod129, 1, cardPubKeyMod, 0, 128);
+            else{
+                //TODO : As of now do nothing in case sign is not 0
+                //TODO : Flip the bits and ADD 1. 
+                //Then discard 1st byte
+                System.out.println("Discarding 1st byte of Card Public Key Mod 129 : "+ (cardPubKeyMod129[0]));
+                System.arraycopy(cardPubKeyMod129, 1, cardPubKeyMod, 0, 128);
+            }
             
 
-            System.out.println("Card Public Key Mod : "+CardMngr.bytesToHex(cardPubKeyMod129));
+            System.out.println("Card Public Key Mod 129 : "+CardMngr.bytesToHex(cardPubKeyMod129));
+            System.out.println("Card Public Key Mod : "+CardMngr.bytesToHex(cardPubKeyMod));
             System.out.println("Card Public Key Exp : " + CardMngr.bytesToHex(cardPubKeyExp));
             System.out.println("Counter From Card   : " + CardMngr.bytesToHex(counterFromCard));
 
@@ -227,23 +231,27 @@ public class SimpleAPDU {
             //pcPub = KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PUBLIC, KeyBuilder.LENGTH_RSA_1024, true);
             cardCipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);            
             cardCipher.init(cardPub, Cipher.MODE_ENCRYPT);
-                        
+            
+
+            // MILAN : Create the Card Public Key
            ((RSAPublicKey) cardPub).setExponent(cardPubKeyExp, (short) 0, (short) cardPubKeyExp.length);
             System.out.println("Card Public Key Exp SET !!");
+            
             ((RSAPublicKey)cardPub).setModulus(cardPubKeyMod129, (short) 0, (short) cardPubKeyMod129.length);
-            System.out.println("Card Public Key Mod SET !!");
+            System.out.println("Card Public Key Mod 129 SET !!");
+            
+            //((RSAPublicKey)cardPub).setModulus(cardPubKeyMod, (short) 0, (short) cardPubKeyMod129.length);
+            //System.out.println("Card Public Key Mod SET !!");
             
             
-            
+            //MILAN : Check whether the set modulus is correct by doing getModulus.
             byte[] checkCardPubKeyMod129 = new byte[129];
             ((RSAPublicKey)cardPub).getModulus(checkCardPubKeyMod129, (short) 0);
-            System.out.println("Card Public Key Mod : " + CardMngr.bytesToHex(checkCardPubKeyMod129));
-            System.out.println("Card Public Key Mod Length: " + checkCardPubKeyMod129.length);
+            System.out.println("Card Public Key Mod CHECK: " + CardMngr.bytesToHex(checkCardPubKeyMod129));
+            System.out.println("Card Public Key Mod Length CHECK: " + checkCardPubKeyMod129.length);
             
             
             
-            //cardRSACipher.doFinal(keyArray, additionalDataLen_PC_Card_1, additionalDataLen_PC_Card_1, keyArray, additionalDataLen_PC_Card_1)
-           
             //------------------------ PC_CARD_2 START----------------------------
             RSAPrivateKey randPCPriv = null;//
             randPCPriv = (RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_1024, true);
@@ -271,23 +279,34 @@ public class SimpleAPDU {
 
                 //randPCPrivKeySize = (short) (randPCPriv.getSize() / (short) 8);
                 randPCPubKeyModSize = (short) (randPCPub.getSize() / (short) 8);
-                System.out.println("randPCPubKeyModSize : "+ (randPCPubKeyModSize));
+                System.out.println("randPCPubKeyModSize from getSize() : "+ (randPCPubKeyModSize));
 
                 pcPubKeyMod129 = new byte[randPCPubKeyModSize+1];
                 pcPubKeyMod = new byte[randPCPubKeyModSize];
+                //MILAN :  create the pc public keys
                 len = ((RSAPublicKey) randPCPub).getModulus(pcPubKeyMod129, (short) 0);
-                System.out.println("len : "+ (len));
-                System.arraycopy(pcPubKeyMod129, 1, pcPubKeyMod, 0, randPCPubKeyModSize);
-                //randPCPub.getModulus(pcPubKeyMod, (short) 0);
+                System.out.println("len from getModulus() : "+ (len));
+                //MILAN : convert into 128 bytes to send to card
+                if(pcPubKeyMod129[0] == 0x00)
+                    System.arraycopy(pcPubKeyMod129, 1, pcPubKeyMod, 0, randPCPubKeyModSize);
+                else{
+                    //TODO : As of now do nothing in case sign is not 0
+                    //TODO : Flip the bits and ADD 1. 
+                    //Then discard 1st byte
+                    System.arraycopy(pcPubKeyMod129, 1, pcPubKeyMod, 0, randPCPubKeyModSize);
+                }
+                    
+                
                 pcPubKeyExp = new byte[randPCPubKeyExpSize];
                 ((RSAPublicKey) randPCPub).getExponent(pcPubKeyExp, (short) 0);
-                //randPCPub.getExponent(pcPubKeyExp, (short) 0);
+                
 
             } catch (CryptoException e) {
                 short reason = e.getReason();
                 ISOException.throwIt(reason);
             }
 
+            System.out.println("PC Public Key Mod 129 : "+CardMngr.bytesToHex(pcPubKeyMod129));
             System.out.println("PC Public Key Mod : "+CardMngr.bytesToHex(pcPubKeyMod));
             System.out.println("PC Public Key Exp : "+CardMngr.bytesToHex(pcPubKeyExp));
             
@@ -321,8 +340,8 @@ public class SimpleAPDU {
             cardCipher.init(cardPub, Cipher.MODE_ENCRYPT);
             if (additionalDataLen_PC_Card_2 != 0) {
 
-                //encryptCipher.doFinal(data_PC_Card_2, (short) 0, additionalDataLen_PC_Card_2, apdu_PC_Card_2, CardMngr.OFFSET_DATA);
-                cardCipher.doFinal(data_PC_Card_2, (short) 0, additionalDataLen_PC_Card_2, apdu_PC_Card_2, CardMngr.OFFSET_DATA);
+                encryptCipher.doFinal(data_PC_Card_2, (short) 0, additionalDataLen_PC_Card_2, apdu_PC_Card_2, CardMngr.OFFSET_DATA);
+                //cardCipher.doFinal(data_PC_Card_2, (short) 0, additionalDataLen_PC_Card_2, apdu_PC_Card_2, CardMngr.OFFSET_DATA);
             }
             System.out.println("apdu_PC_Card_2 : " + CardMngr.bytesToHex(apdu_PC_Card_2));
             
@@ -385,9 +404,16 @@ public class SimpleAPDU {
 
            // decryptCipherCBC.doFinal(response_PC_Card_2, (short) 0, (short) (response_PC_Card_2.length - 2), passPhrase, (short) 0);
            
+           passwordAsString = CardMngr.convertHexToString(CardMngr.bytesToHex2(passPhrase));
+           System.out.println("passWord: "+ passwordAsString);
+           
+           
+           
         } catch (Exception ex) {
             System.out.println("Exception : " + ex);
         }
+        
+        //return passwordAsString;
     }
 
     public static void incrementCounter(byte[] counter) {

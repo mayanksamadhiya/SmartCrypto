@@ -344,18 +344,18 @@ public class SimpleApplet extends javacard.framework.Applet {
         //cardCipher.init(cardPriv, Cipher.MODE_DECRYPT);
         //cardCipher.init(cardPub, Cipher.MODE_ENCRYPT);
 
-        byte[] cardPubKeyMod = null;
+        byte[] cardPubKeyMod129 = null;
         byte[] cardPubKeyExp = null;
-        short cardPubKeyModSize = 0;
+        short cardPubKeyModSize = 129;
         short cardPubKeyExpSize = 3;
         //short cardPrivKeySize = 0;
         try {
 
             //cardPrivKeySize = (short)(cardPriv.getSize()/(short) 8);
-            cardPubKeyModSize = (short) (cardPub.getSize() / (short) 8);
+            //cardPubKeyModSize = (short) (cardPub.getSize()/(short) 8);
 
-            cardPubKeyMod = JCSystem.makeTransientByteArray(cardPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
-            ((RSAPublicKey) cardPub).getModulus(cardPubKeyMod, (short) 0);
+            cardPubKeyMod129 = JCSystem.makeTransientByteArray(cardPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
+            ((RSAPublicKey) cardPub).getModulus(cardPubKeyMod129, (short) 0);
             cardPubKeyExp = JCSystem.makeTransientByteArray(cardPubKeyExpSize, JCSystem.CLEAR_ON_DESELECT);
             ((RSAPublicKey) cardPub).getExponent(cardPubKeyExp, (short) 0);
 
@@ -364,16 +364,16 @@ public class SimpleApplet extends javacard.framework.Applet {
             ISOException.throwIt(reason);
         }
 
-        Util.arrayCopyNonAtomic(cardPubKeyMod, (short) 0, m_ramArray, (short) 0, (short) cardPubKeyMod.length);
-        Util.arrayCopyNonAtomic(cardPubKeyExp, (short) 0, m_ramArray, (short) cardPubKeyMod.length, (short) cardPubKeyExp.length);
-        Util.arrayCopyNonAtomic(m_counter, (short) 0, m_ramArray, (short) (cardPubKeyMod.length + cardPubKeyExp.length), (short) m_counter.length);
+        Util.arrayCopyNonAtomic(cardPubKeyMod129, (short) 0, m_ramArray, (short) 0, (short) (cardPubKeyMod129.length));
+        Util.arrayCopyNonAtomic(cardPubKeyExp, (short) 0, m_ramArray, (short) (cardPubKeyMod129.length), (short) cardPubKeyExp.length);
+        Util.arrayCopyNonAtomic(m_counter, (short) 0, m_ramArray, (short) ((cardPubKeyMod129.length) + cardPubKeyExp.length), (short) m_counter.length);
 
-        m_encryptCipherCBC.doFinal(m_ramArray, (short) 0, (short) (m_counter.length + cardPubKeyMod.length + cardPubKeyExp.length + 9), apdubuf, ISO7816.OFFSET_CDATA);
+        m_encryptCipherCBC.doFinal(m_ramArray, (short) 0, (short) (m_counter.length + (cardPubKeyMod129.length) + cardPubKeyExp.length + 8), apdubuf, ISO7816.OFFSET_CDATA);
 
         //Util.arrayCopyNonAtomic(m_ramArray, (short) 0, apdubuf, ISO7816.OFFSET_CDATA, (short)(m_counter.length + cardPubKey.length));
         //apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short)(maxLength+m_counter.length));
         //Util.arrayCopyNonAtomic(m_ramArray, (short) 0, apdubuf, ISO7816.OFFSET_CDATA, (short) (16));
-        apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short) (m_counter.length + cardPubKeyMod.length + cardPubKeyExp.length + 9));
+        apdu.setOutgoingAndSend(ISO7816.OFFSET_CDATA, (short) (m_counter.length + (cardPubKeyMod129.length) + cardPubKeyExp.length + 8));
     }
 
     void AsymSec_PC_Card_2(APDU apdu) {
@@ -384,10 +384,11 @@ public class SimpleApplet extends javacard.framework.Applet {
             ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
         
-        cardCipher.init(cardPriv, Cipher.MODE_DECRYPT);
-               
-        //m_decryptCipherCBC.doFinal(apdubuf, ISO7816.OFFSET_CDATA, dataLen, m_ramArray, (short) 0);
-        cardCipher.doFinal(apdubuf, ISO7816.OFFSET_CDATA, dataLen, m_ramArray, (short) 0);
+                       
+        m_decryptCipherCBC.doFinal(apdubuf, ISO7816.OFFSET_CDATA, dataLen, m_ramArray, (short) 0);
+        
+        //cardCipher.init(cardPriv, Cipher.MODE_DECRYPT);
+        //cardCipher.doFinal(apdubuf, ISO7816.OFFSET_CDATA, dataLen, m_ramArray, (short) 0);
         
         
         short pcPubKeyModSize = (short) 128;
@@ -398,15 +399,20 @@ public class SimpleApplet extends javacard.framework.Applet {
         pcPubKey = JCSystem.makeTransientByteArray(pcPubKeySize, JCSystem.CLEAR_ON_DESELECT);
         Util.arrayCopy(m_ramArray, (short) 0, pcPubKey, (short) 0, (short) pcPubKey.length);
 
-        byte[] pcPubKeyMod = JCSystem.makeTransientByteArray(pcPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
-        Util.arrayCopy(pcPubKey, (short) 0, pcPubKeyMod, (short) 0, (short) pcPubKeyMod.length);
+        //MILAN : Create the PC public key
         byte[] pcPubKeyExp = JCSystem.makeTransientByteArray(pcPubKeyExpSize, JCSystem.CLEAR_ON_DESELECT);
         Util.arrayCopy(pcPubKey, (short) 0, pcPubKeyExp, (short) 0, (short) pcPubKeyExp.length);
+        byte[] pcPubKeyMod = JCSystem.makeTransientByteArray(pcPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
+        Util.arrayCopy(pcPubKey, (short) 0, pcPubKeyMod, (short) 0, (short) pcPubKeyMod.length);
+        byte[] pcPubKeyMod129 = JCSystem.makeTransientByteArray((short)(pcPubKeyModSize+1), JCSystem.CLEAR_ON_DESELECT);
+        Util.arrayCopy(pcPubKey, (short) 0, pcPubKeyMod129, (short) 1, (short) pcPubKeyMod.length);
+        pcPubKeyMod129[0] = 0x00;
+        
 
         try {
 
             //pcPubKeyMod = JCSystem.makeTransientByteArray(cardPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
-            ((RSAPublicKey) pcPub).setModulus(pcPubKeyMod, (short) 0, pcPubKeyModSize);
+            ((RSAPublicKey) pcPub).setModulus(pcPubKeyMod129, (short) 0, pcPubKeyModSize);
             //cardPubKeyExp = JCSystem.makeTransientByteArray(cardPubKeyExpSize, JCSystem.CLEAR_ON_DESELECT);
             ((RSAPublicKey) pcPub).setExponent(pcPubKeyExp, (short) 0, pcPubKeyExpSize);
 
@@ -422,9 +428,8 @@ public class SimpleApplet extends javacard.framework.Applet {
         Util.arrayCopyNonAtomic(m_password, (short) 0, finalPass, (short) 0, (short) m_password.length);
         Util.arrayCopyNonAtomic(hashBuffer, (short) 0, finalPass, (short) m_password.length, (short) hashBuffer.length);
 
-        //m_encryptCipherCBC.init(m_keyEncryptCardPc, Cipher.MODE_ENCRYPT);
         m_encryptCipherCBC.doFinal(finalPass, (short)0, (short)finalPass.length, apdubuf, ISO7816.OFFSET_CDATA);
-        pcCipher.init(pcPub, Cipher.MODE_ENCRYPT);
+        //pcCipher.init(pcPub, Cipher.MODE_ENCRYPT);
         //pcCipher.doFinal(finalPass, (short) 0, (short) finalPass.length, apdubuf, ISO7816.OFFSET_CDATA);
 
         //Util.arrayCopyNonAtomic(keyFromHash, (short) 0, apdubuf, ISO7816.OFFSET_CDATA, (short) 20);

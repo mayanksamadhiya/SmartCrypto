@@ -178,6 +178,15 @@ public class CardMngr {
         return (buf.toString());
     }
     
+    public static String bytesToHex2(byte[] data) {
+        StringBuilder buf = new StringBuilder();
+        for (int i = 0; i < data.length; i++) {
+            buf.append(byteToHex(data[i]));
+            //buf.append(" ");
+        }
+        return (buf.toString());
+    }
+    
     
     public boolean prepareLocalSimulatorApplet(byte[] appletAIDArray, byte[] installData, Class appletClass) {
         System.setProperty("com.licel.jcardsim.terminal.type", "2");
@@ -199,6 +208,30 @@ public class CardMngr {
         System.out.println("<<<<");
 
         return responseBytes;
+    }
+    
+    public static String convertHexToString(String hex){
+
+	  StringBuilder sb = new StringBuilder();
+	  StringBuilder temp = new StringBuilder();
+
+	  //49204c6f7665204a617661 split into two characters 49, 20, 4c...
+	  for( int i=0; i<hex.length()-1; i+=2 ){
+
+	      //grab the hex in pairs
+	      String output = hex.substring(i, (i + 2));
+	      //convert hex to decimal
+	      int decimal = Integer.parseInt(output, 16);
+	      //convert the decimal to character
+	      
+              //sb.append((char)decimal);
+              sb.append(Integer.toHexString(decimal));
+
+	      //temp.append(decimal);
+	  }
+	  //System.out.println("Decimal : " + temp.toString());
+
+	  return sb.toString();
     }
     
     
