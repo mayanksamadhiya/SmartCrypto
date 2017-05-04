@@ -45,7 +45,7 @@ public class SimpleAPDU {
 
     private static Key cardPriv = null;//(RSAPrivateKey) KeyBuilder.buildKey(KeyBuilder.TYPE_RSA_PRIVATE, KeyBuilder.LENGTH_RSA_2, false);
     private static Key cardPub = null;
-    //private static Cipher randPCCipher = null;
+    private static Cipher randPCCipher = null;
     private static KeyPair cardKeyPair = null;
     private static MessageDigest hash = null;
     
@@ -237,11 +237,11 @@ public class SimpleAPDU {
            ((RSAPublicKey) cardPub).setExponent(cardPubKeyExp, (short) 0, (short) cardPubKeyExp.length);
             System.out.println("Card Public Key Exp SET !!");
             
-            ((RSAPublicKey)cardPub).setModulus(cardPubKeyMod129, (short) 0, (short) cardPubKeyMod129.length);
-            System.out.println("Card Public Key Mod 129 SET !!");
+            //((RSAPublicKey)cardPub).setModulus(cardPubKeyMod129, (short) 0, (short) cardPubKeyMod129.length);
+            //System.out.println("Card Public Key Mod 129 SET !!");
             
-            //((RSAPublicKey)cardPub).setModulus(cardPubKeyMod, (short) 0, (short) cardPubKeyMod129.length);
-            //System.out.println("Card Public Key Mod SET !!");
+            ((RSAPublicKey)cardPub).setModulus(cardPubKeyMod, (short) 0, (short) cardPubKeyMod.length);
+            System.out.println("Card Public Key Mod SET !!");
             
             
             //MILAN : Check whether the set modulus is correct by doing getModulus.
@@ -264,10 +264,10 @@ public class SimpleAPDU {
             randPCKeyPair.genKeyPair();
             randPCPriv = (RSAPrivateKey)randPCKeyPair.getPrivate();
             randPCPub = (RSAPublicKey)randPCKeyPair.getPublic();
-            //randPCCipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
-            //b.setModulus(P, (short) 0, maxLength);
-            //randPCCipher.init(randPCPriv, Cipher.MODE_DECRYPT);
-            //randPCCipher.init(randPCPub, Cipher.MODE_ENCRYPT);
+            randPCCipher = Cipher.getInstance(Cipher.ALG_RSA_PKCS1, false);
+            
+            
+            
             byte[] pcPubKeyMod129 = null;
             byte[] pcPubKeyMod = null;
             byte[] pcPubKeyExp = null;
@@ -293,7 +293,9 @@ public class SimpleAPDU {
                     //TODO : As of now do nothing in case sign is not 0
                     //TODO : Flip the bits and ADD 1. 
                     //Then discard 1st byte
-                    System.arraycopy(pcPubKeyMod129, 1, pcPubKeyMod, 0, randPCPubKeyModSize);
+                    //System.arraycopy(pcPubKeyMod129, 1, pcPubKeyMod, 0, randPCPubKeyModSize);
+                    System.out.println("PC Public Key Modulus 1st byte is not 0x00");
+                    System.exit(1);
                 }
                     
                 
@@ -310,25 +312,93 @@ public class SimpleAPDU {
             System.out.println("PC Public Key Mod : "+CardMngr.bytesToHex(pcPubKeyMod));
             System.out.println("PC Public Key Exp : "+CardMngr.bytesToHex(pcPubKeyExp));
             
-            byte[] pcPubKey = new byte[pcPubKeyMod.length + pcPubKeyExp.length];
+            
+            
+            
+            
+            
+            
+            
+            //MILAN : Encrypt and Decrypt test START 
+           
+            byte[] plain = {0x01, 0x02, 0x03, 0x04, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05}; 
+            byte[] cipher = new byte[128];
+            byte[] plain1 = new byte[128];
+            System.out.println("plain: "+CardMngr.bytesToHex(plain));
+            
+            short pcPubKeyModSize = (short) 128;
+            short pcPubKeyMod129Size = (short) 129;
+            short pcPubKeyExpSize = (short) 3;
+            short pcPubKeySize = (short) (pcPubKeyModSize + pcPubKeyExpSize);
+            
+            byte[] pcPrivKeyMod129 = new byte[randPCPubKeyModSize+1];
+            byte[] pcPrivKeyMod = new byte[randPCPubKeyModSize];
+            
+            /*
+            ((RSAPublicKey) randPCPriv).getModulus(pcPrivKeyMod129, (short) 0);
+            System.out.println("pcPrivKeyMod129 : "+CardMngr.bytesToHex(pcPrivKeyMod129));
+            //pcPubKeyMod = JCSystem.makeTransientByteArray(cardPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
+            ((RSAPublicKey) randPCPriv).setModulus(pcPrivKeyMod129, (short) 0, pcPubKeyMod129Size);
+            //cardPubKeyExp = JCSystem.makeTransientByteArray(cardPubKeyExpSize, JCSystem.CLEAR_ON_DESELECT);
+            */
+            
+            //pcPubKeyMod = JCSystem.makeTransientByteArray(cardPubKeyModSize, JCSystem.CLEAR_ON_DESELECT);
+            ((RSAPublicKey) randPCPub).setModulus(pcPubKeyMod129, (short) 0, pcPubKeyMod129Size);
+            //cardPubKeyExp = JCSystem.makeTransientByteArray(cardPubKeyExpSize, JCSystem.CLEAR_ON_DESELECT);
+            ((RSAPublicKey) randPCPub).setExponent(pcPubKeyExp, (short) 0, pcPubKeyExpSize);
 
-            System.arraycopy(pcPubKeyMod, 0, pcPubKey, 0, pcPubKeyMod.length);
-            System.arraycopy(pcPubKeyExp, 0, pcPubKey, pcPubKeyMod.length, pcPubKeyExp.length);
+            randPCCipher.init(randPCPub, Cipher.MODE_ENCRYPT);    
+            randPCCipher.doFinal(plain, (short) 0, (short) (plain.length), cipher, (short) 0);
+            System.out.println("cipher : "+CardMngr.bytesToHex(cipher));
+            
+            
+            
+            
+            randPCCipher.init(randPCPriv, Cipher.MODE_DECRYPT);    
+            randPCCipher.doFinal(cipher, (short) 0, (short) (cipher.length), plain1, (short) 0);
+            System.out.println("plain1: "+CardMngr.bytesToHex(plain1));
+            
+            // MILAN : Encrypt and Decrypt test END
+            
+            
+                       
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            byte[] pcPubKey = new byte[pcPubKeyMod129.length + pcPubKeyExp.length];
+
+            System.arraycopy(pcPubKeyMod129, 0, pcPubKey, 0, pcPubKeyMod129.length);
+            System.arraycopy(pcPubKeyExp, 0, pcPubKey, pcPubKeyMod129.length, pcPubKeyExp.length);
             
             System.out.println("PC Public Key : "+ CardMngr.bytesToHex(pcPubKey));
             
             //cardRSACipher.doFinal(pcPubKey, randPCPubKeySize, randPCPubKeySize, keyArray, randPCPubKeySize)
-            byte[] data_PC_Card_2 = new byte[pcPubKey.length + 4 + 9];
+            byte[] data_PC_Card_2 = new byte[pcPubKey.length + 4 + 8];
 
             //encryptCipherCBC.doFinal(pcPubKey, (short) 0, (short) (pcPubKeyMod.length + pcPubKeyExp.length + 13), data_PC_Card_2, (short) 0);
             //cardRSACipher.doFinal(pcPubKey, (short) 0, (short) (128), data_PC_Card_2, (short) 0);
             System.arraycopy(pcPubKey,0, data_PC_Card_2, 0, pcPubKey.length);
             //System.arraycopy(pcPubKey,0, data_PC_Card_2, 0, pcPubKey.length);
+            //System.arraycopy(pcPubKey,0, data_PC_Card_2, 0, pcPubKey.length);
             System.arraycopy(countArray,0, data_PC_Card_2, pcPubKey.length, countArray.length);
             System.out.println("data_PC_Card_2 : " + CardMngr.bytesToHex(data_PC_Card_2));
             System.out.println("additionalDataLen_PC_Card_2 : " + data_PC_Card_2.length);
             
-            short additionalDataLen_PC_Card_2 = (short) (data_PC_Card_2.length); //128 pub mod + 3 pub exp + 4 count + 9 pad
+            short additionalDataLen_PC_Card_2 = (short) (data_PC_Card_2.length); //128 pub mod + 4 count + 9 pad
             //System.out.println()
             byte[] apdu_PC_Card_2 = new byte[CardMngr.HEADER_LENGTH + additionalDataLen_PC_Card_2];
             apdu_PC_Card_2[CardMngr.OFFSET_CLA] = (byte) 0xB0;// class B0
@@ -372,9 +442,9 @@ public class SimpleAPDU {
             
             byte[] finalPass = new byte[response_PC_Card_2.length - 2];
             
-            cardCipher.init(randPCPriv, Cipher.MODE_ENCRYPT);    
+            randPCCipher.init(randPCPriv, Cipher.MODE_DECRYPT);    
             decryptCipher.doFinal(response_PC_Card_2, (short) 0, (short) (response_PC_Card_2.length - 2), finalPass, (short) 0);
-            //cardCipher.doFinal(response_PC_Card_2, (short) 0, (short) (response_PC_Card_2.length - 2), finalPass, (short) 0);
+            //randPCCipher.doFinal(response_PC_Card_2, (short) 0, (short) (response_PC_Card_2.length - 2), finalPass, (short) 0);
             //System.out.println("final Pass: "+CardMngr.bytesToHex(finalPass));
             
             byte[] passPhrase = new byte[12];
